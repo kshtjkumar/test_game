@@ -1374,12 +1374,20 @@ async function executeFight() {
   afterFight();
 }
 
+function getParadigmParams() {
+  const params = new URLSearchParams(window.location.search);
+  const targetStreak = parseInt(params.get('streak') || '5', 10);
+  const targetMinRounds = parseInt(params.get('minRounds') || '5', 10);
+  return { targetStreak, targetMinRounds };
+}
+
 function afterFight() {
   log(`— Round ${currentRound} —`);
   log(`You send ${selected.name} into the arena. The gates open…`);
   log(`${selected.name} strikes a fatal blow and emerges victorious! The crowd roars.`, 'highlight');
 
-  if (consecutive >= 3 && currentRound >= 5) {
+  const { targetStreak, targetMinRounds } = getParadigmParams();
+  if (consecutive >= targetStreak && currentRound >= targetMinRounds) {
     behavioralData.associationLevel = consecutive;
     behavioralData.arm = randomArm();
     setTimeout(() => {
@@ -1723,28 +1731,32 @@ function stdDev(arr) {
 }
 
 function computeDerivedMetrics() {
-  // Baseline per the spec: mean/SD of re-selection latency across Rounds 1–4.
-  const baselineLatencies = [1,2,3,4].map(r => roundLatencyByRound[r]).filter(v => v !== undefined);
+  // Baseline per cognitive spec: mean/SD of selection latency across all pre-trigger rounds.
+  const baselineLatencies = Object.keys(roundLatencyByRound)
+    .map(Number)
+    .filter(r => r < currentRound)
+    .map(r => roundLatencyByRound[r])
+    .filter(v => v !== undefined);
   const baselineMean = mean(baselineLatencies);
   const baselineSd = stdDev(baselineLatencies);
 
   // Existential Weight: (L_relinquish - baseline mean) / baseline SD.
-  // Undefined if there's no relinquishment-decision latency yet, or the
-  // baseline has no variance to standardize against.
   let ew = null;
   if (behavioralData.relinquishmentLatencyMs !== null && baselineMean !== null && baselineSd) {
     ew = (behavioralData.relinquishmentLatencyMs - baselineMean) / baselineSd;
   }
   const ewInterpretation = ew === null ? null : (ew > 2.0 ? 'High Existential Achievement' : ew < 0.5 ? 'Automatic Processing' : 'Moderate');
 
-  // X1: Association Strength — mean re-selection speed across Rounds 2–4.
-  const x1AssociationStrengthMs = mean([2,3,4].map(r => roundLatencyByRound[r]).filter(v => v !== undefined));
+  // X1: Association Strength — mean selection speed across habituation rounds (Rounds 2 to N-1).
+  const preRounds = Object.keys(roundLatencyByRound).map(Number).filter(r => r >= 2 && r < currentRound);
+  const x1AssociationStrengthMs = mean(preRounds.map(r => roundLatencyByRound[r]).filter(v => v !== undefined));
   // X2: Narrative Engagement — total dwell time on campfire/backstory beats.
   const x2NarrativeEngagementMs = Math.round(empathyDwellMs);
   // X3: Visual Decay Reaction — change in selection latency right after the
-  // wounded/system warning appears (Round 5 vs. Round 4).
-  const x3VisualDecayReactionMs = (roundLatencyByRound[5] !== undefined && roundLatencyByRound[4] !== undefined)
-    ? roundLatencyByRound[5] - roundLatencyByRound[4]
+  // wounded/system warning appears.
+  const prevRound = currentRound - 1;
+  const x3VisualDecayReactionMs = (roundLatencyByRound[currentRound] !== undefined && roundLatencyByRound[prevRound] !== undefined)
+    ? roundLatencyByRound[currentRound] - roundLatencyByRound[prevRound]
     : null;
 
   return {
