@@ -1429,8 +1429,8 @@ async function executeFight() {
 
 function getParadigmParams() {
   const params = new URLSearchParams(window.location.search);
-  const targetStreak = parseInt(params.get('streak') || '5', 10);
-  const targetMinRounds = parseInt(params.get('minRounds') || '5', 10);
+  const targetStreak = parseInt(params.get('streak') || '4', 10);
+  const targetMinRounds = parseInt(params.get('minRounds') || '4', 10);
   return { targetStreak, targetMinRounds };
 }
 
@@ -1455,12 +1455,12 @@ function afterFight() {
   }
 
   setTimeout(async () => {
-    if (currentRound === 3) {
+    if (currentRound === 2) {
       const t0 = performance.now();
       await logCampfire(`${selected.name} cleans their blade by the fire. "I only need a few more victories," they whisper. "${selected.tag}"`);
       empathyDwellMs += performance.now() - t0;
     }
-    if (currentRound === 4) {
+    if (currentRound === 3) {
       const t0 = performance.now();
       await logCampfire(`${selected.name} is breathing heavily, staring into the flames. The last fight took a toll.`);
       await logCampfire(`In the arena, no one is immortal. Every wound leaves a mark. ${selected.name} is human, and humans break.`, { warn: true, icon: '⚠️' });
