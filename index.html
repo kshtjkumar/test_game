@@ -1418,7 +1418,7 @@ const SoundEngine = (function() {
       noise.stop(now + 2.2);
     },
 
-    // 8. Majestic Roman Buccina Horn Blast & War Drums (Victory Anthem)
+    // 8. Majestic Royal Imperial Buccina Horn Blast & Victory Anthem
     playVictoryFanfare() {
       unlockAudio();
       if (!isPlayable()) return;
@@ -1426,14 +1426,21 @@ const SoundEngine = (function() {
       const dest = getDest();
       const now = c.currentTime;
 
-      this.playWarDrum();
-      setTimeout(() => this.playWarDrum(), 220);
+      // 1. Triumphant Gladiator War Cry
+      this.playWarCry(1.15);
 
+      // 2. Imperial War Drum Roll
+      this.playWarDrum();
+      setTimeout(() => this.playWarDrum(), 200);
+      setTimeout(() => this.playWarDrum(), 400);
+
+      // 3. Royal Imperial Buccina Brass Horn Ensemble (D Major Royal Triumph)
       const hornNotes = [
-        { f: 146.83, t: 0.1, d: 0.35 }, // D3
-        { f: 220.00, t: 0.35, d: 0.35 }, // A3
-        { f: 293.66, t: 0.6, d: 0.4 },  // D4
-        { f: 369.99, t: 0.95, d: 0.9 }   // F#4
+        { f: 146.83, t: 0.2, d: 0.5 },  // D3
+        { f: 220.00, t: 0.45, d: 0.5 }, // A3
+        { f: 293.66, t: 0.7, d: 0.6 },  // D4
+        { f: 369.99, t: 1.0, d: 1.2 },  // F#4 (Royal Major 3rd)
+        { f: 440.00, t: 1.0, d: 1.2 }   // A4 (Fifth Siphon)
       ];
 
       hornNotes.forEach(n => {
@@ -1445,13 +1452,13 @@ const SoundEngine = (function() {
         osc1.type = 'sawtooth';
         osc2.type = 'square';
         osc1.frequency.setValueAtTime(n.f, now + n.t);
-        osc2.frequency.setValueAtTime(n.f * 1.002, now + n.t);
+        osc2.frequency.setValueAtTime(n.f * 1.003, now + n.t);
 
         filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(350, now + n.t);
-        filter.frequency.linearRampToValueAtTime(1600, now + n.t + 0.12);
+        filter.frequency.setValueAtTime(300, now + n.t);
+        filter.frequency.linearRampToValueAtTime(1800, now + n.t + 0.15);
 
-        gain.gain.setValueAtTime(0.35, now + n.t);
+        gain.gain.setValueAtTime(0.4, now + n.t);
         gain.gain.exponentialRampToValueAtTime(0.001, now + n.t + n.d);
 
         osc1.connect(filter);
@@ -1464,9 +1471,86 @@ const SoundEngine = (function() {
         osc1.stop(now + n.t + n.d);
         osc2.stop(now + n.t + n.d);
       });
+
+      // 4. Stadium Colosseum Crowd Roar
+      setTimeout(() => this.playCrowdCheer(), 500);
     },
 
-    // 9. Mournful Roman Funeral Bell & Deep Drone (Defeat)
+    // 9. Formant Gladiator Battle War Cry ("ROAR! / HOOAH!")
+    playWarCry(pitchMult = 1.0) {
+      unlockAudio();
+      if (!isPlayable()) return;
+      const c = getCtx();
+      const dest = getDest();
+      const now = c.currentTime;
+
+      // Unison voice oscillators (detuned saw waves for visceral human throat pitch)
+      const osc1 = c.createOscillator();
+      const osc2 = c.createOscillator();
+      osc1.type = 'sawtooth';
+      osc2.type = 'sawtooth';
+
+      const baseF = 135 * pitchMult;
+      osc1.frequency.setValueAtTime(baseF, now);
+      osc1.frequency.linearRampToValueAtTime(baseF * 1.25, now + 0.15);
+      osc1.frequency.exponentialRampToValueAtTime(baseF * 0.85, now + 0.5);
+
+      osc2.frequency.setValueAtTime(baseF * 1.015, now);
+      osc2.frequency.linearRampToValueAtTime(baseF * 1.27, now + 0.15);
+      osc2.frequency.exponentialRampToValueAtTime(baseF * 0.84, now + 0.5);
+
+      // Formant filters (Vowel vocal tract resonances: AH -> OH)
+      const f1 = c.createBiquadFilter();
+      f1.type = 'bandpass';
+      f1.frequency.setValueAtTime(750, now);
+      f1.frequency.linearRampToValueAtTime(500, now + 0.5);
+      f1.Q.value = 3.5;
+
+      const f2 = c.createBiquadFilter();
+      f2.type = 'bandpass';
+      f2.frequency.setValueAtTime(1250, now);
+      f2.frequency.linearRampToValueAtTime(900, now + 0.5);
+      f2.Q.value = 4.0;
+
+      // Breath noise component
+      const bufSize = c.sampleRate * 0.5;
+      const buf = c.createBuffer(1, bufSize, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+      const noise = c.createBufferSource();
+      noise.buffer = buf;
+      const nFilter = c.createBiquadFilter();
+      nFilter.type = 'bandpass';
+      nFilter.frequency.value = 1400;
+      const nGain = c.createGain();
+      nGain.gain.setValueAtTime(0.2, now);
+      nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+      const voxGain = c.createGain();
+      voxGain.gain.setValueAtTime(0.01, now);
+      voxGain.gain.linearRampToValueAtTime(0.7, now + 0.08);
+      voxGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+      osc1.connect(f1);
+      osc2.connect(f2);
+      f1.connect(voxGain);
+      f2.connect(voxGain);
+      voxGain.connect(dest);
+
+      noise.connect(nFilter);
+      nFilter.connect(nGain);
+      nGain.connect(dest);
+
+      osc1.start(now);
+      osc2.start(now);
+      noise.start(now);
+
+      osc1.stop(now + 0.5);
+      osc2.stop(now + 0.5);
+      noise.stop(now + 0.5);
+    },
+
+    // 10. Mournful Roman Funeral Bell & Deep Drone (Defeat)
     playDefeatGong() {
       unlockAudio();
       if (!isPlayable()) return;
@@ -1476,7 +1560,7 @@ const SoundEngine = (function() {
 
       this.playWarDrum();
 
-      const freqs = [73.42, 110.00, 130.81]; // D2 minor chord
+      const freqs = [73.42, 110.00, 130.81];
       freqs.forEach(freq => {
         const osc = c.createOscillator();
         const gain = c.createGain();
@@ -1679,6 +1763,8 @@ async function executeFight() {
   fightStatus.style.display = 'block';
   fightResult.style.display = 'none';
 
+  SoundEngine.playWarDrum();
+
   await wait(900);
 
   const beatCount = 2 + Math.floor(Math.random() * 2); // 2 or 3 exchanges
@@ -1692,8 +1778,14 @@ async function executeFight() {
     clashEl.textContent = clashIcons[i % clashIcons.length];
     fightOverlay.insertBefore(clashEl, fightResult);
     spawnSparks(fightOverlay);
+
+    // Trigger Gladiator Battle War Cry & Steel Impact
+    if (i === 0) SoundEngine.playWarCry(1.0);
+    else SoundEngine.playWarCry(0.9);
+
     if (i % 2 === 0) SoundEngine.playSwordSlash();
     else SoundEngine.playSwordClash();
+
     mainEl.classList.add('shake');
     setTimeout(() => mainEl.classList.remove('shake'), 500);
     await wait(650);
@@ -1709,7 +1801,6 @@ async function executeFight() {
   fightResult.style.display = 'block';
   fightResult.textContent = `${fighter.name} is victorious!`;
   SoundEngine.playVictoryFanfare();
-  SoundEngine.playCrowdCheer();
   const rect = mainEl.getBoundingClientRect();
   burst(rect.left + rect.width / 2, rect.top + rect.height / 2, 34);
 
