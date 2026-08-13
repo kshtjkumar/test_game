@@ -1063,7 +1063,7 @@ const behavioralData = {
   engagementDeltaMs: null
 };
 
-/* ================= SOUND ENGINE (Web Audio API Procedural Audio) ================= */
+/* ================= SOUND ENGINE (Cinematic Roman Odyssey Web Audio Synth) ================= */
 const SoundEngine = (function() {
   let ctx = null;
   let masterGain = null;
@@ -1133,36 +1133,41 @@ const SoundEngine = (function() {
       updateBtnUI();
     },
 
+    // 1. Heavy Gladius Steel Blade Slash
     playSwordSlash() {
       unlockAudio();
       if (!isPlayable()) return;
       const c = getCtx();
       const dest = getDest();
       const now = c.currentTime;
-      const bufferSize = c.sampleRate * 0.18;
-      const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-      const noise = c.createBufferSource();
-      noise.buffer = buffer;
 
+      // Steel blade friction noise
+      const bufSize = c.sampleRate * 0.22;
+      const buf = c.createBuffer(1, bufSize, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+      const noise = c.createBufferSource();
+      noise.buffer = buf;
+
+      // Resonant metallic bandpass filter sweep
       const filter = c.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(600, now);
-      filter.frequency.exponentialRampToValueAtTime(3500, now + 0.15);
-      filter.Q.value = 2.5;
+      filter.frequency.setValueAtTime(1850, now);
+      filter.frequency.exponentialRampToValueAtTime(3800, now + 0.18);
+      filter.Q.value = 4.5;
 
       const gain = c.createGain();
-      gain.gain.setValueAtTime(0.7, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      gain.gain.setValueAtTime(0.85, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
 
+      // Steel blade ringing frequency
       const osc = c.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(1200, now);
-      osc.frequency.exponentialRampToValueAtTime(400, now + 0.14);
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(2450, now);
+      osc.frequency.exponentialRampToValueAtTime(1600, now + 0.18);
       const oscGain = c.createGain();
-      oscGain.gain.setValueAtTime(0.3, now);
-      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      oscGain.gain.setValueAtTime(0.35, now);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
 
       noise.connect(filter);
       filter.connect(gain);
@@ -1173,10 +1178,11 @@ const SoundEngine = (function() {
 
       noise.start(now);
       osc.start(now);
-      noise.stop(now + 0.18);
-      osc.stop(now + 0.14);
+      noise.stop(now + 0.22);
+      osc.stop(now + 0.18);
     },
 
+    // 2. Heavy Shield Wall & Steel Clash (Sub-bass boom + metallic clash)
     playSwordClash() {
       unlockAudio();
       if (!isPlayable()) return;
@@ -1184,211 +1190,314 @@ const SoundEngine = (function() {
       const dest = getDest();
       const now = c.currentTime;
 
-      const osc1 = c.createOscillator();
-      const osc1Gain = c.createGain();
-      osc1.type = 'triangle';
-      osc1.frequency.setValueAtTime(2200, now);
-      osc1.frequency.exponentialRampToValueAtTime(600, now + 0.3);
-      osc1Gain.gain.setValueAtTime(0.6, now);
-      osc1Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      // Sub-bass impact thud (Iron/Wood Shield Wall)
+      const sub = c.createOscillator();
+      const subGain = c.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(95, now);
+      sub.frequency.exponentialRampToValueAtTime(32, now + 0.28);
+      subGain.gain.setValueAtTime(1.0, now);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
 
-      const osc2 = c.createOscillator();
-      const osc2Gain = c.createGain();
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(220, now);
-      osc2.frequency.exponentialRampToValueAtTime(50, now + 0.25);
-      osc2Gain.gain.setValueAtTime(0.8, now);
-      osc2Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      // Metallic collision ring 1
+      const ring1 = c.createOscillator();
+      const ring1Gain = c.createGain();
+      ring1.type = 'triangle';
+      ring1.frequency.setValueAtTime(1420, now);
+      ring1.frequency.exponentialRampToValueAtTime(450, now + 0.35);
+      ring1Gain.gain.setValueAtTime(0.7, now);
+      ring1Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
 
-      const bufSize = c.sampleRate * 0.12;
+      // Metallic collision ring 2 (overtone)
+      const ring2 = c.createOscillator();
+      const ring2Gain = c.createGain();
+      ring2.type = 'sine';
+      ring2.frequency.setValueAtTime(2840, now);
+      ring2.frequency.exponentialRampToValueAtTime(800, now + 0.25);
+      ring2Gain.gain.setValueAtTime(0.4, now);
+      ring2Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+      // Iron impact burst
+      const bufSize = c.sampleRate * 0.14;
       const buf = c.createBuffer(1, bufSize, c.sampleRate);
       const d = buf.getChannelData(0);
       for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
       const noise = c.createBufferSource();
       noise.buffer = buf;
+
       const nFilter = c.createBiquadFilter();
       nFilter.type = 'lowpass';
-      nFilter.frequency.value = 1800;
+      nFilter.frequency.setValueAtTime(2200, now);
+      nFilter.frequency.exponentialRampToValueAtTime(400, now + 0.14);
+
       const nGain = c.createGain();
-      nGain.gain.setValueAtTime(0.6, now);
-      nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      nGain.gain.setValueAtTime(0.8, now);
+      nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
 
       noise.connect(nFilter);
       nFilter.connect(nGain);
       nGain.connect(dest);
 
-      osc1.connect(osc1Gain);
-      osc1Gain.connect(dest);
-      osc2.connect(osc2Gain);
-      osc2Gain.connect(dest);
+      sub.connect(subGain);
+      subGain.connect(dest);
 
-      osc1.start(now);
-      osc2.start(now);
+      ring1.connect(ring1Gain);
+      ring1Gain.connect(dest);
+
+      ring2.connect(ring2Gain);
+      ring2Gain.connect(dest);
+
+      sub.start(now);
+      ring1.start(now);
+      ring2.start(now);
       noise.start(now);
-      osc1.stop(now + 0.3);
-      osc2.stop(now + 0.25);
-      noise.stop(now + 0.12);
+
+      sub.stop(now + 0.28);
+      ring1.stop(now + 0.35);
+      ring2.stop(now + 0.25);
+      noise.stop(now + 0.14);
     },
 
+    // 3. Heavy Roman Tympanum War Drum Boom
+    playWarDrum() {
+      unlockAudio();
+      if (!isPlayable()) return;
+      const c = getCtx();
+      const dest = getDest();
+      const now = c.currentTime;
+
+      // Deep drum shell sub-bass
+      const sub = c.createOscillator();
+      const subGain = c.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(65, now);
+      sub.frequency.exponentialRampToValueAtTime(28, now + 0.45);
+      subGain.gain.setValueAtTime(1.0, now);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+      // Drum head tone
+      const head = c.createOscillator();
+      const headGain = c.createGain();
+      head.type = 'triangle';
+      head.frequency.setValueAtTime(110, now);
+      head.frequency.exponentialRampToValueAtTime(45, now + 0.3);
+      headGain.gain.setValueAtTime(0.6, now);
+      headGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+      sub.connect(subGain);
+      subGain.connect(dest);
+      head.connect(headGain);
+      headGain.connect(dest);
+
+      sub.start(now);
+      head.start(now);
+      sub.stop(now + 0.45);
+      head.stop(now + 0.3);
+    },
+
+    // 4. Visceral Armor Strike & Hit
     playHitBleed() {
       unlockAudio();
       if (!isPlayable()) return;
       const c = getCtx();
       const dest = getDest();
       const now = c.currentTime;
-      const osc = c.createOscillator();
-      const oscGain = c.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(140, now);
-      osc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
-      oscGain.gain.setValueAtTime(0.7, now);
-      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-      const bufSize = c.sampleRate * 0.18;
+
+      const sub = c.createOscillator();
+      const subGain = c.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(120, now);
+      sub.frequency.exponentialRampToValueAtTime(25, now + 0.32);
+      subGain.gain.setValueAtTime(0.9, now);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+
+      const bufSize = c.sampleRate * 0.2;
       const buf = c.createBuffer(1, bufSize, c.sampleRate);
       const d = buf.getChannelData(0);
       for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
       const noise = c.createBufferSource();
       noise.buffer = buf;
+
       const nFilter = c.createBiquadFilter();
       nFilter.type = 'lowpass';
-      nFilter.frequency.setValueAtTime(900, now);
-      nFilter.frequency.linearRampToValueAtTime(200, now + 0.18);
+      nFilter.frequency.setValueAtTime(650, now);
+      nFilter.frequency.linearRampToValueAtTime(150, now + 0.2);
+
       const nGain = c.createGain();
-      nGain.gain.setValueAtTime(0.5, now);
-      nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      nGain.gain.setValueAtTime(0.7, now);
+      nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
       noise.connect(nFilter);
       nFilter.connect(nGain);
       nGain.connect(dest);
-      osc.connect(oscGain);
-      oscGain.connect(dest);
-      osc.start(now);
+      sub.connect(subGain);
+      subGain.connect(dest);
+
+      sub.start(now);
       noise.start(now);
-      osc.stop(now + 0.3);
-      noise.stop(now + 0.18);
+      sub.stop(now + 0.32);
+      noise.stop(now + 0.2);
     },
 
+    // 5. Heavy Roman Denarii Silver Coin Drop
     playCoinChime() {
       unlockAudio();
       if (!isPlayable()) return;
       const c = getCtx();
       const dest = getDest();
       const now = c.currentTime;
-      const freqs = [987.77, 1318.51, 1975.53];
+
+      const freqs = [1975.53, 2960.00];
       freqs.forEach((freq, idx) => {
         const osc = c.createOscillator();
         const gain = c.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now + idx * 0.05);
-        gain.gain.setValueAtTime(0.3, now + idx * 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.35);
+        osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+        gain.gain.setValueAtTime(0.35, now + idx * 0.06);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.4);
         osc.connect(gain);
         gain.connect(dest);
-        osc.start(now + idx * 0.05);
-        osc.stop(now + idx * 0.05 + 0.35);
+        osc.start(now + idx * 0.06);
+        osc.stop(now + idx * 0.06 + 0.4);
       });
     },
 
+    // 6. Tactile Roman Stone & Parchment UI Click
     playUIClick() {
       unlockAudio();
       if (!isPlayable()) return;
       const c = getCtx();
       const dest = getDest();
       const now = c.currentTime;
+
       const osc = c.createOscillator();
       const gain = c.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(520, now);
-      osc.frequency.exponentialRampToValueAtTime(130, now + 0.04);
-      gain.gain.setValueAtTime(0.3, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(160, now);
+      osc.frequency.exponentialRampToValueAtTime(45, now + 0.05);
+      gain.gain.setValueAtTime(0.4, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
       osc.connect(gain);
       gain.connect(dest);
       osc.start(now);
-      osc.stop(now + 0.04);
+      osc.stop(now + 0.05);
     },
 
+    // 7. Colosseum Audience Arena Roar
     playCrowdCheer() {
       unlockAudio();
       if (!isPlayable()) return;
       const c = getCtx();
       const dest = getDest();
       const now = c.currentTime;
-      const bufSize = c.sampleRate * 1.6;
+
+      const bufSize = c.sampleRate * 2.2;
       const buf = c.createBuffer(1, bufSize, c.sampleRate);
       const d = buf.getChannelData(0);
       for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
       const noise = c.createBufferSource();
       noise.buffer = buf;
+
       const filter = c.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(650, now);
-      filter.Q.value = 1.2;
+      filter.frequency.setValueAtTime(450, now);
+      filter.Q.value = 0.9;
+
       const gain = c.createGain();
       gain.gain.setValueAtTime(0.01, now);
-      gain.gain.linearRampToValueAtTime(0.35, now + 0.3);
-      gain.gain.linearRampToValueAtTime(0.25, now + 1.1);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.6);
+      gain.gain.linearRampToValueAtTime(0.45, now + 0.4);
+      gain.gain.linearRampToValueAtTime(0.3, now + 1.4);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 2.2);
+
       noise.connect(filter);
       filter.connect(gain);
       gain.connect(dest);
+
       noise.start(now);
-      noise.stop(now + 1.6);
+      noise.stop(now + 2.2);
     },
 
+    // 8. Majestic Roman Buccina Horn Blast & War Drums (Victory Anthem)
     playVictoryFanfare() {
       unlockAudio();
       if (!isPlayable()) return;
       const c = getCtx();
       const dest = getDest();
       const now = c.currentTime;
-      const notes = [
-        { f: 261.63, t: 0, d: 0.2 },
-        { f: 329.63, t: 0.15, d: 0.2 },
-        { f: 392.00, t: 0.3, d: 0.2 },
-        { f: 523.25, t: 0.45, d: 0.7 }
+
+      this.playWarDrum();
+      setTimeout(() => this.playWarDrum(), 220);
+
+      const hornNotes = [
+        { f: 146.83, t: 0.1, d: 0.35 }, // D3
+        { f: 220.00, t: 0.35, d: 0.35 }, // A3
+        { f: 293.66, t: 0.6, d: 0.4 },  // D4
+        { f: 369.99, t: 0.95, d: 0.9 }   // F#4
       ];
-      notes.forEach(n => {
-        const osc = c.createOscillator();
+
+      hornNotes.forEach(n => {
+        const osc1 = c.createOscillator();
+        const osc2 = c.createOscillator();
         const gain = c.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(n.f, now + n.t);
         const filter = c.createBiquadFilter();
+
+        osc1.type = 'sawtooth';
+        osc2.type = 'square';
+        osc1.frequency.setValueAtTime(n.f, now + n.t);
+        osc2.frequency.setValueAtTime(n.f * 1.002, now + n.t);
+
         filter.type = 'lowpass';
-        filter.frequency.value = 1400;
-        gain.gain.setValueAtTime(0.25, now + n.t);
+        filter.frequency.setValueAtTime(350, now + n.t);
+        filter.frequency.linearRampToValueAtTime(1600, now + n.t + 0.12);
+
+        gain.gain.setValueAtTime(0.35, now + n.t);
         gain.gain.exponentialRampToValueAtTime(0.001, now + n.t + n.d);
-        osc.connect(filter);
+
+        osc1.connect(filter);
+        osc2.connect(filter);
         filter.connect(gain);
         gain.connect(dest);
-        osc.start(now + n.t);
-        osc.stop(now + n.t + n.d);
+
+        osc1.start(now + n.t);
+        osc2.start(now + n.t);
+        osc1.stop(now + n.t + n.d);
+        osc2.stop(now + n.t + n.d);
       });
     },
 
+    // 9. Mournful Roman Funeral Bell & Deep Drone (Defeat)
     playDefeatGong() {
       unlockAudio();
       if (!isPlayable()) return;
       const c = getCtx();
       const dest = getDest();
       const now = c.currentTime;
-      const freqs = [110.00, 130.81, 164.81];
+
+      this.playWarDrum();
+
+      const freqs = [73.42, 110.00, 130.81]; // D2 minor chord
       freqs.forEach(freq => {
         const osc = c.createOscillator();
         const gain = c.createGain();
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(freq, now);
-        osc.frequency.linearRampToValueAtTime(freq * 0.85, now + 1.3);
+        osc.frequency.linearRampToValueAtTime(freq * 0.92, now + 1.8);
+
         const filter = c.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(800, now);
-        filter.frequency.linearRampToValueAtTime(200, now + 1.3);
-        gain.gain.setValueAtTime(0.35, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.3);
+        filter.frequency.setValueAtTime(600, now);
+        filter.frequency.linearRampToValueAtTime(120, now + 1.8);
+
+        gain.gain.setValueAtTime(0.45, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+
         osc.connect(filter);
         filter.connect(gain);
         gain.connect(dest);
+
         osc.start(now);
-        osc.stop(now + 1.3);
+        osc.stop(now + 1.8);
       });
     }
   };
