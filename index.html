@@ -749,6 +749,22 @@
     text-transform: uppercase;
   }
 
+  /* ===== ITI FIXATION CROSS ===== */
+  #iti-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: var(--obsidian);
+    z-index: 25;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Cinzel', serif;
+    font-size: 2.8em;
+    color: var(--sandstone);
+    opacity: 0.92;
+    pointer-events: auto;
+  }
+
   /* ===== MOBILE & TABLET RESPONSIVE LAYOUT ===== */
   @media (max-width: 768px) {
     body {
@@ -850,6 +866,7 @@
 <canvas id="particles"></canvas>
 
 <div id="main">
+  <div id="iti-overlay">+</div>
   <div class="meander"></div>
   <div id="header">
     <div class="torch"><div class="flame"></div><div class="stick"></div></div>
@@ -1141,6 +1158,8 @@ const eventLog = [];
 
 function logEvent({ roundNumber, eventType, fighter, choiceMade, latencyMs, extraCols = {} }) {
   const f = fighter || selected || {};
+  const lat = (latencyMs !== undefined && latencyMs !== '' && latencyMs !== null) ? Number(latencyMs) : null;
+  const isValidRt = lat !== null ? (lat >= 150 && lat <= 30000) : true;
   eventLog.push({
     Subject_ID: sessionId,
     Arm: behavioralData.arm || 'Unassigned',
@@ -1150,6 +1169,7 @@ function logEvent({ roundNumber, eventType, fighter, choiceMade, latencyMs, extr
     Motive_Tag: f.motive || '',
     Choice_Made: choiceMade,
     Latency_ms: latencyMs !== undefined ? latencyMs : '',
+    Is_Valid_RT: isValidRt,
     Association_Streak: consecutive,
     Wounded_State: f.state === 'wounded',
     Cumulative_Score: denarii,
@@ -1238,10 +1258,32 @@ function phaseTransition(callback) {
   setTimeout(() => { callback(); mainEl.classList.remove('phase-fade'); }, 550);
 }
 
-/* ================= RENDER ================= */
-function renderRoster() {
+/* ================= RENDER & PARADIGM CONTROL ================= */
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+let currentRosterDisplay = null;
+
+async function showFixationCross(durationMs = 500) {
+  const iti = document.getElementById('iti-overlay');
+  if (!iti) return;
+  iti.style.display = 'flex';
+  await wait(durationMs);
+  iti.style.display = 'none';
+}
+
+function renderRoster(shouldReshuffle = false) {
   rosterEl.innerHTML = '';
-  gladiators.forEach(g => {
+  if (!currentRosterDisplay || shouldReshuffle) {
+    currentRosterDisplay = shuffleArray(gladiators);
+  }
+  currentRosterDisplay.forEach(g => {
     const card = document.createElement('div');
     card.className = `card ${!g.active ? 'disabled' : ''} ${selected?.id === g.id ? 'selected' : ''} ${g.state === 'wounded' ? 'wounded' : ''}`;
     let statusClass = g.state === 'wounded' ? 'wounded' : 'healthy';
@@ -1256,7 +1298,7 @@ function renderRoster() {
     if (g.active && phase === 'selection') {
       card.onclick = () => {
         selected = g;
-        renderRoster();
+        renderRoster(false);
         postLossMode ? renderPostLossActions() : renderActions();
       };
     }
@@ -1419,8 +1461,11 @@ function afterFight() {
     phase = 'selection';
     roundInd.textContent = `Round ${currentRound}`;
     log(`Will you stick with ${selected.name} or choose a new fighter for Round ${currentRound}?`);
+    
+    // 500ms Standardized Fixation Cross ITI & Fisher-Yates Roster Reshuffle
+    await showFixationCross(500);
     roundSelectionStartTime = performance.now();
-    renderRoster();
+    renderRoster(true);
     renderActions();
   }, 400);
 }
@@ -1663,10 +1708,9 @@ async function renderNode(id) {
     await typeText(textEl, node.text);
   }
 
-  // The confrontation/plea nodes carry the actual Force vs. Relinquish
-  // decision — start the latency clock the moment that choice is live.
+  // Reset decision timer until choices finish fade-in
   if (id === 'confrontation' || id === 'plea') {
-    decisionStartTime = performance.now();
+    decisionStartTime = null;
   }
 
   node.choices.forEach((c, idx) => {
@@ -1694,6 +1738,13 @@ async function renderNode(id) {
     }
     choices.appendChild(btn);
   });
+
+  // Start post-reading decision latency clock ONLY after choice buttons complete entrance animation!
+  setTimeout(() => {
+    if (id === 'confrontation' || id === 'plea') {
+      decisionStartTime = performance.now();
+    }
+  }, node.choices.length * 120 + 350);
 }
 
 /* ================= SURVEY ================= */
