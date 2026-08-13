@@ -1802,6 +1802,11 @@ function calcResults() {
     latencyMs: sessionStartTime !== null ? Math.round(performance.now() - sessionStartTime) : 0
   });
 
+  // Backfill assigned experimental Arm across all early selection rows
+  eventLog.forEach(r => {
+    if (r.Arm === 'Unassigned' || !r.Arm) r.Arm = behavioralData.arm || 'Unassigned';
+  });
+
   console.log('[STUDY EVENT DATA (LONG FORMAT - 7-8 ROWS)]', eventLog);
   downloadSessionCsv(eventLog);
 
