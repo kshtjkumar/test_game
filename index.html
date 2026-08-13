@@ -747,6 +747,26 @@
     text-transform: uppercase;
   }
 
+  .audio-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68em;
+    letter-spacing: 1px;
+    color: var(--sandstone);
+    background: rgba(36,29,22,0.6);
+    border: 1px solid #3a2f20;
+    padding: 3px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: absolute;
+    right: 140px;
+    top: 14px;
+  }
+  .audio-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold-bright);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
   }
@@ -766,6 +786,7 @@
     </div>
     <span id="round-indicator">Round 1</span>
     <span id="denarii-indicator">0 ✦ Denarii</span>
+    <button id="audio-toggle" class="audio-btn" onclick="SoundEngine.toggleMute()" title="Toggle Sound">🔊 Sound On</button>
     <div class="torch"><div class="flame"></div><div class="stick"></div></div>
   </div>
   <div class="meander"></div>
@@ -1042,10 +1063,288 @@ const behavioralData = {
   engagementDeltaMs: null
 };
 
+/* ================= SOUND ENGINE (Web Audio API Procedural Audio) ================= */
+const SoundEngine = (function() {
+  let ctx = null;
+  let muted = localStorage.getItem('ludus_muted') === 'true';
+
+  function getCtx() {
+    if (!ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) ctx = new AudioCtx();
+    }
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume();
+    }
+    return ctx;
+  }
+
+  function unlock() {
+    getCtx();
+    document.removeEventListener('click', unlock);
+    document.removeEventListener('keydown', unlock);
+  }
+  document.addEventListener('click', unlock);
+  document.addEventListener('keydown', unlock);
+
+  function isPlayable() {
+    return !muted && getCtx();
+  }
+
+  function updateBtnUI() {
+    const btn = document.getElementById('audio-toggle');
+    if (btn) {
+      btn.textContent = muted ? '🔇 Muted' : '🔊 Sound On';
+      btn.style.color = muted ? 'var(--parchment-dim)' : 'var(--sandstone)';
+    }
+  }
+
+  return {
+    toggleMute() {
+      muted = !muted;
+      localStorage.setItem('ludus_muted', muted);
+      updateBtnUI();
+      if (!muted) this.playUIClick();
+    },
+
+    initUI() {
+      updateBtnUI();
+    },
+
+    playSwordSlash() {
+      if (!isPlayable()) return;
+      const c = getCtx();
+      const now = c.currentTime;
+      const bufferSize = c.sampleRate * 0.15;
+      const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+      const noise = c.createBufferSource();
+      noise.buffer = buffer;
+      const filter = c.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(800, now);
+      filter.frequency.exponentialRampToValueAtTime(3200, now + 0.12);
+      filter.Q.value = 3;
+      const gain = c.createGain();
+      gain.gain.setValueAtTime(0.35, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      const osc = c.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1400, now);
+      osc.frequency.exponentialRampToValueAtTime(600, now + 0.12);
+      const oscGain = c.createGain();
+      oscGain.gain.setValueAtTime(0.1, now);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(c.destination);
+      osc.connect(oscGain);
+      oscGain.connect(c.destination);
+      noise.start(now);
+      osc.start(now);
+      noise.stop(now + 0.15);
+      osc.stop(now + 0.12);
+    },
+
+    playSwordClash() {
+      if (!isPlayable()) return;
+      const c = getCtx();
+      const now = c.currentTime;
+      const osc1 = c.createOscillator();
+      const osc1Gain = c.createGain();
+      osc1.type = 'triangle';
+      osc1.frequency.setValueAtTime(2400, now);
+      osc1.frequency.exponentialRampToValueAtTime(800, now + 0.25);
+      osc1Gain.gain.setValueAtTime(0.3, now);
+      osc1Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      const osc2 = c.createOscillator();
+      const osc2Gain = c.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(180, now);
+      osc2.frequency.exponentialRampToValueAtTime(45, now + 0.2);
+      osc2Gain.gain.setValueAtTime(0.5, now);
+      osc2Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      const bufSize = c.sampleRate * 0.1;
+      const buf = c.createBuffer(1, bufSize, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+      const noise = c.createBufferSource();
+      noise.buffer = buf;
+      const nFilter = c.createBiquadFilter();
+      nFilter.type = 'lowpass';
+      nFilter.frequency.value = 1500;
+      const nGain = c.createGain();
+      nGain.gain.setValueAtTime(0.4, now);
+      nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      noise.connect(nFilter);
+      nFilter.connect(nGain);
+      nGain.connect(c.destination);
+      osc1.connect(osc1Gain);
+      osc1Gain.connect(c.destination);
+      osc2.connect(osc2Gain);
+      osc2Gain.connect(c.destination);
+      osc1.start(now);
+      osc2.start(now);
+      noise.start(now);
+      osc1.stop(now + 0.25);
+      osc2.stop(now + 0.2);
+      noise.stop(now + 0.1);
+    },
+
+    playHitBleed() {
+      if (!isPlayable()) return;
+      const c = getCtx();
+      const now = c.currentTime;
+      const osc = c.createOscillator();
+      const oscGain = c.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(130, now);
+      osc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
+      oscGain.gain.setValueAtTime(0.6, now);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      const bufSize = c.sampleRate * 0.18;
+      const buf = c.createBuffer(1, bufSize, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+      const noise = c.createBufferSource();
+      noise.buffer = buf;
+      const nFilter = c.createBiquadFilter();
+      nFilter.type = 'lowpass';
+      nFilter.frequency.setValueAtTime(800, now);
+      nFilter.frequency.linearRampToValueAtTime(200, now + 0.18);
+      const nGain = c.createGain();
+      nGain.gain.setValueAtTime(0.35, now);
+      nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      noise.connect(nFilter);
+      nFilter.connect(nGain);
+      nGain.connect(c.destination);
+      osc.connect(oscGain);
+      oscGain.connect(c.destination);
+      osc.start(now);
+      noise.start(now);
+      osc.stop(now + 0.3);
+      noise.stop(now + 0.18);
+    },
+
+    playCoinChime() {
+      if (!isPlayable()) return;
+      const c = getCtx();
+      const now = c.currentTime;
+      const freqs = [987.77, 1318.51, 1975.53];
+      freqs.forEach((freq, idx) => {
+        const osc = c.createOscillator();
+        const gain = c.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+        gain.gain.setValueAtTime(0.2, now + idx * 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.3);
+        osc.connect(gain);
+        gain.connect(c.destination);
+        osc.start(now + idx * 0.05);
+        osc.stop(now + idx * 0.05 + 0.3);
+      });
+    },
+
+    playUIClick() {
+      if (!isPlayable()) return;
+      const c = getCtx();
+      const now = c.currentTime;
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.exponentialRampToValueAtTime(110, now + 0.03);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+      osc.connect(gain);
+      gain.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + 0.03);
+    },
+
+    playCrowdCheer() {
+      if (!isPlayable()) return;
+      const c = getCtx();
+      const now = c.currentTime;
+      const bufSize = c.sampleRate * 1.5;
+      const buf = c.createBuffer(1, bufSize, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+      const noise = c.createBufferSource();
+      noise.buffer = buf;
+      const filter = c.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(600, now);
+      filter.Q.value = 1.2;
+      const gain = c.createGain();
+      gain.gain.setValueAtTime(0.01, now);
+      gain.gain.linearRampToValueAtTime(0.2, now + 0.3);
+      gain.gain.linearRampToValueAtTime(0.15, now + 1.0);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(c.destination);
+      noise.start(now);
+      noise.stop(now + 1.5);
+    },
+
+    playVictoryFanfare() {
+      if (!isPlayable()) return;
+      const c = getCtx();
+      const now = c.currentTime;
+      const notes = [
+        { f: 261.63, t: 0, d: 0.2 },
+        { f: 329.63, t: 0.15, d: 0.2 },
+        { f: 392.00, t: 0.3, d: 0.2 },
+        { f: 523.25, t: 0.45, d: 0.6 }
+      ];
+      notes.forEach(n => {
+        const osc = c.createOscillator();
+        const gain = c.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(n.f, now + n.t);
+        const filter = c.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 1200;
+        gain.gain.setValueAtTime(0.15, now + n.t);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + n.t + n.d);
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(c.destination);
+        osc.start(now + n.t);
+        osc.stop(now + n.t + n.d);
+      });
+    },
+
+    playDefeatGong() {
+      if (!isPlayable()) return;
+      const c = getCtx();
+      const now = c.currentTime;
+      const freqs = [110.00, 130.81, 164.81];
+      freqs.forEach(freq => {
+        const osc = c.createOscillator();
+        const gain = c.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.linearRampToValueAtTime(freq * 0.85, now + 1.2);
+        const filter = c.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(800, now);
+        filter.frequency.linearRampToValueAtTime(200, now + 1.2);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(c.destination);
+        osc.start(now);
+        osc.stop(now + 1.2);
+      });
+    }
+  };
+})();
+
 function randomArm() {
-  // Testing hook: append ?arm=A, ?arm=B, or ?arm=C to the URL to force a
-  // condition while verifying the build. Real participants won't add this,
-  // so it doesn't affect actual randomization in a live study.
   const forced = new URLSearchParams(window.location.search).get('arm');
   if (forced && ['A', 'B', 'C'].includes(forced.toUpperCase())) {
     return forced.toUpperCase();
@@ -1069,8 +1368,9 @@ function awardDenarii(amount) {
   denarii += amount;
   denariiInd.textContent = `${denarii} ✦ Denarii`;
   denariiInd.classList.remove('bump');
-  void denariiInd.offsetWidth; // restart the animation
+  void denariiInd.offsetWidth;
   denariiInd.classList.add('bump');
+  SoundEngine.playCoinChime();
 }
 
 /* ================= HELPERS ================= */
@@ -1142,6 +1442,7 @@ function renderRoster() {
     `;
     if (g.active && phase === 'selection') {
       card.onclick = () => {
+        SoundEngine.playUIClick();
         selected = g;
         renderRoster();
         postLossMode ? renderPostLossActions() : renderActions();
@@ -1158,7 +1459,10 @@ function renderActions() {
     btn.className = 'btn primary';
     btn.textContent = 'Enter the Arena';
     btn.disabled = !selected;
-    btn.onclick = executeFight;
+    btn.onclick = () => {
+      SoundEngine.playUIClick();
+      executeFight();
+    };
     actionsEl.appendChild(btn);
   }
 }
@@ -1229,6 +1533,8 @@ async function executeFight() {
     clashEl.textContent = clashIcons[i % clashIcons.length];
     fightOverlay.insertBefore(clashEl, fightResult);
     spawnSparks(fightOverlay);
+    if (i % 2 === 0) SoundEngine.playSwordSlash();
+    else SoundEngine.playSwordClash();
     mainEl.classList.add('shake');
     setTimeout(() => mainEl.classList.remove('shake'), 500);
     await wait(650);
@@ -1243,6 +1549,8 @@ async function executeFight() {
   fightStatus.style.display = 'none';
   fightResult.style.display = 'block';
   fightResult.textContent = `${fighter.name} is victorious!`;
+  SoundEngine.playVictoryFanfare();
+  SoundEngine.playCrowdCheer();
   const rect = mainEl.getBoundingClientRect();
   burst(rect.left + rect.width / 2, rect.top + rect.height / 2, 34);
 
@@ -1689,6 +1997,7 @@ function init() {
   log('Welcome to the Ludus. Select your fighter for Round 1.', 'highlight');
   sessionStartTime = performance.now();
   roundSelectionStartTime = performance.now();
+  SoundEngine.initUI();
   renderRoster();
   renderActions();
   buildSurvey();
