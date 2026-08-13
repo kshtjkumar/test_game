@@ -747,26 +747,6 @@
     text-transform: uppercase;
   }
 
-  .audio-btn {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.68em;
-    letter-spacing: 1px;
-    color: var(--sandstone);
-    background: rgba(36,29,22,0.6);
-    border: 1px solid #3a2f20;
-    padding: 3px 8px;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    position: absolute;
-    right: 140px;
-    top: 14px;
-  }
-  .audio-btn:hover {
-    border-color: var(--gold);
-    color: var(--gold-bright);
-  }
-
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
   }
@@ -786,7 +766,6 @@
     </div>
     <span id="round-indicator">Round 1</span>
     <span id="denarii-indicator">0 ✦ Denarii</span>
-    <button id="audio-toggle" class="audio-btn" onclick="SoundEngine.toggleMute()" title="Toggle Sound">🔊 Sound On</button>
     <div class="torch"><div class="flame"></div><div class="stick"></div></div>
   </div>
   <div class="meander"></div>
@@ -1063,167 +1042,6 @@ const behavioralData = {
   engagementDeltaMs: null
 };
 
-/* ================= SOUND ENGINE (Studio Recorded Foley + Real MP3 Audio) ================= */
-const SoundEngine = (function() {
-  let ctx = null;
-  let masterGain = null;
-  let muted = localStorage.getItem('ludus_muted') === 'true';
-
-  // High-Definition Studio Recorded Foley Audio Samples (Amazon CloudFront CDN)
-  const SAMPLES = {
-    clash: 'https://assets.mixkit.co/active_storage/sfx/2044/2044-preview.mp3',   // Real steel sword collision
-    slash: 'https://assets.mixkit.co/active_storage/sfx/2798/2798-preview.mp3',   // Real steel blade slash
-    warcry: 'https://assets.mixkit.co/active_storage/sfx/2813/2813-preview.mp3',  // Real warrior battle shout / war cry
-    fanfare: 'https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3', // Real royal victory brass fanfare
-    cheer: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3'    // Real Colosseum arena crowd roar
-  };
-
-  const audioCache = {};
-
-  // Pre-load studio sound samples
-  Object.keys(SAMPLES).forEach(key => {
-    const audio = new Audio();
-    audio.crossOrigin = 'anonymous';
-    audio.src = SAMPLES[key];
-    audio.preload = 'auto';
-    audioCache[key] = audio;
-  });
-
-  function playSample(key, volume = 1.0) {
-    if (muted) return;
-    try {
-      const original = audioCache[key];
-      if (original) {
-        const clone = original.cloneNode();
-        clone.volume = Math.min(1.0, Math.max(0.0, volume));
-        const p = clone.play();
-        if (p !== undefined) {
-          p.catch(() => {});
-        }
-      }
-    } catch (e) {}
-  }
-
-  function getCtx() {
-    if (!ctx) {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) {
-        ctx = new AudioCtx();
-        masterGain = ctx.createGain();
-        masterGain.gain.value = 1.0;
-        masterGain.connect(ctx.destination);
-      }
-    }
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
-    return ctx;
-  }
-
-  function unlockAudio() {
-    const c = getCtx();
-    if (c && c.state === 'suspended') {
-      c.resume().catch(() => {});
-    }
-    Object.keys(audioCache).forEach(k => {
-      audioCache[k].load();
-    });
-  }
-
-  ['click', 'touchstart', 'keydown', 'mousedown'].forEach(evt => {
-    window.addEventListener(evt, unlockAudio, { capture: true, passive: true });
-  });
-
-  function isPlayable() {
-    return !muted;
-  }
-
-  function updateBtnUI() {
-    const btn = document.getElementById('audio-toggle');
-    if (btn) {
-      btn.textContent = muted ? '🔇 Muted' : '🔊 Sound On';
-      btn.style.color = muted ? 'var(--parchment-dim)' : 'var(--sandstone)';
-    }
-  }
-
-  return {
-    unlock: unlockAudio,
-
-    toggleMute() {
-      unlockAudio();
-      muted = !muted;
-      localStorage.setItem('ludus_muted', muted);
-      updateBtnUI();
-      if (!muted) this.playUIClick();
-    },
-
-    initUI() {
-      updateBtnUI();
-    },
-
-    playSwordSlash() {
-      unlockAudio();
-      if (!isPlayable()) return;
-      playSample('slash', 0.9);
-    },
-
-    playSwordClash() {
-      unlockAudio();
-      if (!isPlayable()) return;
-      playSample('clash', 1.0);
-    },
-
-    playWarCry() {
-      unlockAudio();
-      if (!isPlayable()) return;
-      playSample('warcry', 1.0);
-    },
-
-    playVictoryFanfare() {
-      unlockAudio();
-      if (!isPlayable()) return;
-      playSample('fanfare', 1.0);
-      setTimeout(() => playSample('cheer', 0.85), 600);
-    },
-
-    playCrowdCheer() {
-      unlockAudio();
-      if (!isPlayable()) return;
-      playSample('cheer', 0.85);
-    },
-
-    playWarDrum() {
-      unlockAudio();
-      if (!isPlayable()) return;
-      playSample('clash', 0.7);
-    },
-
-    playHitBleed() {
-      unlockAudio();
-      if (!isPlayable()) return;
-      playSample('slash', 0.8);
-    },
-
-    playCoinChime() {
-      unlockAudio();
-      if (!isPlayable()) return;
-      playSample('slash', 0.4);
-    },
-
-    playUIClick() {
-      unlockAudio();
-      if (!isPlayable()) return;
-      playSample('slash', 0.25);
-    },
-
-    playDefeatGong() {
-      unlockAudio();
-      if (!isPlayable()) return;
-      playSample('clash', 0.9);
-    }
-  };
-})();
-
 function randomArm() {
   const forced = new URLSearchParams(window.location.search).get('arm');
   if (forced && ['A', 'B', 'C'].includes(forced.toUpperCase())) {
@@ -1250,7 +1068,6 @@ function awardDenarii(amount) {
   denariiInd.classList.remove('bump');
   void denariiInd.offsetWidth;
   denariiInd.classList.add('bump');
-  SoundEngine.playCoinChime();
 }
 
 /* ================= HELPERS ================= */
@@ -1322,7 +1139,6 @@ function renderRoster() {
     `;
     if (g.active && phase === 'selection') {
       card.onclick = () => {
-        SoundEngine.playUIClick();
         selected = g;
         renderRoster();
         postLossMode ? renderPostLossActions() : renderActions();
@@ -1339,10 +1155,7 @@ function renderActions() {
     btn.className = 'btn primary';
     btn.textContent = 'Enter the Arena';
     btn.disabled = !selected;
-    btn.onclick = () => {
-      SoundEngine.playUIClick();
-      executeFight();
-    };
+    btn.onclick = executeFight;
     actionsEl.appendChild(btn);
   }
 }
@@ -1400,8 +1213,6 @@ async function executeFight() {
   fightStatus.style.display = 'block';
   fightResult.style.display = 'none';
 
-  SoundEngine.playWarDrum();
-
   await wait(900);
 
   const beatCount = 2 + Math.floor(Math.random() * 2); // 2 or 3 exchanges
@@ -1415,13 +1226,6 @@ async function executeFight() {
     clashEl.textContent = clashIcons[i % clashIcons.length];
     fightOverlay.insertBefore(clashEl, fightResult);
     spawnSparks(fightOverlay);
-
-    // Trigger Gladiator Battle War Cry & Steel Impact
-    if (i === 0) SoundEngine.playWarCry(1.0);
-    else SoundEngine.playWarCry(0.9);
-
-    if (i % 2 === 0) SoundEngine.playSwordSlash();
-    else SoundEngine.playSwordClash();
 
     mainEl.classList.add('shake');
     setTimeout(() => mainEl.classList.remove('shake'), 500);
@@ -1437,7 +1241,6 @@ async function executeFight() {
   fightStatus.style.display = 'none';
   fightResult.style.display = 'block';
   fightResult.textContent = `${fighter.name} is victorious!`;
-  SoundEngine.playVictoryFanfare();
   const rect = mainEl.getBoundingClientRect();
   burst(rect.left + rect.width / 2, rect.top + rect.height / 2, 34);
 
@@ -1884,7 +1687,6 @@ function init() {
   log('Welcome to the Ludus. Select your fighter for Round 1.', 'highlight');
   sessionStartTime = performance.now();
   roundSelectionStartTime = performance.now();
-  SoundEngine.initUI();
   renderRoster();
   renderActions();
   buildSurvey();
