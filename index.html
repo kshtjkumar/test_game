@@ -1139,7 +1139,7 @@ const behavioralData = {
 /* ================= EVENT LOGGING (Trial-by-Trial Event Buffer) ================= */
 const eventLog = [];
 
-function logEvent({ roundNumber, eventType, fighter, choiceMade, latencyMs }) {
+function logEvent({ roundNumber, eventType, fighter, choiceMade, latencyMs, extraCols = {} }) {
   const f = fighter || selected || {};
   eventLog.push({
     Subject_ID: sessionId,
@@ -1153,7 +1153,8 @@ function logEvent({ roundNumber, eventType, fighter, choiceMade, latencyMs }) {
     Association_Streak: consecutive,
     Wounded_State: f.state === 'wounded',
     Cumulative_Score: denarii,
-    Timestamp: new Date().toISOString()
+    Timestamp: new Date().toISOString(),
+    ...extraCols
   });
 }
 
@@ -1774,7 +1775,11 @@ function toCsvValue(v) {
 function downloadSessionCsv(rows) {
   const dataset = Array.isArray(rows) ? rows : [rows];
   if (!dataset.length) return;
-  const headers = Object.keys(dataset[0]);
+
+  const headersSet = new Set();
+  dataset.forEach(r => Object.keys(r).forEach(k => headersSet.add(k)));
+  const headers = Array.from(headersSet);
+
   const csv = headers.join(',') + '\n' + dataset.map(r => headers.map(h => toCsvValue(r[h])).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -1799,19 +1804,28 @@ function startSurvey() {
 function calcResults() {
   const fd = new FormData(document.getElementById('ears-form'));
   const scores = [0,0,0,0];
+  const itemResponses = {};
   for (let i = 1; i <= 20; i++) {
     const v = parseInt(fd.get(`q${i}`));
-    scores[Math.floor((i-1)/5)] += v;
+    itemResponses[`q${i}_score`] = isNaN(v) ? '' : v;
+    if (!isNaN(v)) scores[Math.floor((i-1)/5)] += v;
   }
   const avgs = scores.map(s => (s/5).toFixed(2));
   const derived = computeDerivedMetrics();
 
-  // Log final survey event row (Row 8)
+  // Log final survey event row (Row 8) with item-level q1..q20 ratings & subscales
   logEvent({
     roundNumber: '8_Survey',
     eventType: 'EARS_Survey',
     choiceMade: 'Survey_Submit',
-    latencyMs: sessionStartTime !== null ? Math.round(performance.now() - sessionStartTime) : 0
+    latencyMs: sessionStartTime !== null ? Math.round(performance.now() - sessionStartTime) : 0,
+    extraCols: {
+      ...itemResponses,
+      ears_relinquishment_score: avgs[0],
+      ears_meaning_reconstruction_score: avgs[1],
+      ears_finitude_awareness_score: avgs[2],
+      ears_bond_transformation_score: avgs[3]
+    }
   });
 
   // Backfill assigned experimental Arm across all early selection rows
@@ -1819,7 +1833,7 @@ function calcResults() {
     if (r.Arm === 'Unassigned' || !r.Arm) r.Arm = behavioralData.arm || 'Unassigned';
   });
 
-  console.log('[STUDY EVENT DATA (LONG FORMAT - 7-8 ROWS)]', eventLog);
+  console.log('[STUDY EVENT DATA (LONG FORMAT WITH Q1-Q20)]', eventLog);
   downloadSessionCsv(eventLog);
 
   const res = document.getElementById('results');
