@@ -749,6 +749,91 @@
     text-transform: uppercase;
   }
 
+  /* ===== MOBILE & TABLET RESPONSIVE LAYOUT ===== */
+  @media (max-width: 768px) {
+    body {
+      padding: 6px;
+      overflow-y: auto;
+      height: auto;
+      min-height: 100dvh;
+    }
+    #main {
+      width: 100%;
+      height: calc(100dvh - 12px);
+      min-height: 560px;
+      border-radius: 6px;
+    }
+    #header {
+      padding: 10px 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+    }
+    #header .crest {
+      order: 1;
+      width: 100%;
+      text-align: center;
+    }
+    #header .crest h1 {
+      font-size: 1.3em;
+    }
+    #phase-label {
+      position: static;
+      order: 2;
+      font-size: 0.62em;
+    }
+    #round-indicator {
+      position: static;
+      order: 3;
+      font-size: 0.68em;
+    }
+    #denarii-indicator {
+      position: static;
+      order: 4;
+      font-size: 0.68em;
+    }
+    .roster {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .card {
+      padding: 10px 6px 8px;
+      min-height: 94px;
+    }
+    .card .portrait {
+      font-size: 1.8em;
+      margin-bottom: 2px;
+    }
+    .card h3 {
+      font-size: 0.82em;
+    }
+    .card .tag {
+      font-size: 0.68em;
+    }
+    #game-view {
+      padding: 12px 14px;
+    }
+    #dialogue-box {
+      padding: 20px 18px;
+    }
+    #choices {
+      padding: 12px 18px 20px;
+    }
+    .btn {
+      padding: 14px 18px;
+      min-height: 48px;
+    }
+    #survey-view {
+      padding: 16px 14px;
+    }
+  }
+
+  @media (max-width: 420px) {
+    #header .torch { display: none; }
+    .card .tag { display: none; }
+    .fight-beat { font-size: 1.0em; padding: 0 10px; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
   }
