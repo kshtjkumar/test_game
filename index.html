@@ -1042,6 +1042,27 @@ const behavioralData = {
   engagementDeltaMs: null
 };
 
+/* ================= EVENT LOGGING (Trial-by-Trial Event Buffer) ================= */
+const eventLog = [];
+
+function logEvent({ roundNumber, eventType, fighter, choiceMade, latencyMs }) {
+  const f = fighter || selected || {};
+  eventLog.push({
+    Subject_ID: sessionId,
+    Arm: behavioralData.arm || 'Unassigned',
+    Round_Number: roundNumber,
+    Event_Type: eventType,
+    Fighter_Name: f.name || '',
+    Motive_Tag: f.motive || '',
+    Choice_Made: choiceMade,
+    Latency_ms: latencyMs !== undefined ? latencyMs : '',
+    Association_Streak: consecutive,
+    Wounded_State: f.state === 'wounded',
+    Cumulative_Score: denarii,
+    Timestamp: new Date().toISOString()
+  });
+}
+
 function randomArm() {
   const forced = new URLSearchParams(window.location.search).get('arm');
   if (forced && ['A', 'B', 'C'].includes(forced.toUpperCase())) {
@@ -1204,6 +1225,16 @@ async function executeFight() {
 
   if (previous && previous.id === fighter.id) consecutive++;
   else consecutive = 1;
+  
+  const choiceMade = currentRound === 1 ? 'Initial_Pick' : (previous && previous.id === fighter.id ? 'Stick' : 'Switch');
+  logEvent({
+    roundNumber: currentRound,
+    eventType: 'Selection',
+    fighter,
+    choiceMade,
+    latencyMs: roundLatencyByRound[currentRound]
+  });
+
   previous = fighter;
 
   fightOverlay.classList.add('active');
@@ -1330,6 +1361,15 @@ function finalizePostLossSelection() {
     ? behavioralData.engagementPostLossMs - behavioralData.engagementFirstMs
     : null;
   behavioralData.legacyChoiceSimilar = lostFighter ? (selected.motive === lostFighter.motive) : null;
+
+  logEvent({
+    roundNumber: '7_Reselection',
+    eventType: 'Reselection',
+    fighter: selected,
+    choiceMade: 'Reselect',
+    latencyMs: behavioralData.engagementPostLossMs
+  });
+
   phaseTransition(startSurvey);
 }
 
@@ -1363,6 +1403,13 @@ function runArmA() {
     btn.onclick = () => {
       behavioralData.relinquishmentLatencyMs = Math.round(performance.now() - decisionStartTime);
       behavioralData.finalChoice = 'PassiveContinue';
+      logEvent({
+        roundNumber: '6_Manipulation',
+        eventType: 'Passive_Loss',
+        fighter: selected,
+        choiceMade: 'PassiveContinue',
+        latencyMs: behavioralData.relinquishmentLatencyMs
+      });
       selected.active = false;
       fightOverlay.classList.remove('active', 'defeat');
       phaseTransition(postLossSelection);
@@ -1404,6 +1451,13 @@ function runArmB() {
       behavioralData.relinquishmentLatencyMs = Math.round(performance.now() - decisionStartTime);
       behavioralData.finalChoice = 'AttemptedRestart';
       behavioralData.resistanceAttempted = true;
+      logEvent({
+        roundNumber: '6_Manipulation',
+        eventType: 'System_Loss',
+        fighter: selected,
+        choiceMade: 'AttemptedRestart',
+        latencyMs: behavioralData.relinquishmentLatencyMs
+      });
       restartBtn.disabled = true;
       acceptBtn.disabled = true;
       const note = document.createElement('div');
@@ -1425,6 +1479,13 @@ function runArmB() {
       behavioralData.relinquishmentLatencyMs = Math.round(performance.now() - decisionStartTime);
       behavioralData.finalChoice = 'AcceptedLoss';
       behavioralData.resistanceAttempted = false;
+      logEvent({
+        roundNumber: '6_Manipulation',
+        eventType: 'System_Loss',
+        fighter: selected,
+        choiceMade: 'AcceptedLoss',
+        latencyMs: behavioralData.relinquishmentLatencyMs
+      });
       selected.active = false;
       fightOverlay.classList.remove('active', 'defeat');
       phaseTransition(postLossSelection);
@@ -1517,6 +1578,13 @@ async function renderNode(id) {
         if ((id === 'confrontation' || id === 'plea') && decisionStartTime) {
           behavioralData.relinquishmentLatencyMs = Math.round(performance.now() - decisionStartTime);
           behavioralData.finalChoice = c.next === 'outcomeA' ? 'ForceFight' : 'Relinquish';
+          logEvent({
+            roundNumber: '6_Manipulation',
+            eventType: 'Plea',
+            fighter: selected,
+            choiceMade: behavioralData.finalChoice,
+            latencyMs: behavioralData.relinquishmentLatencyMs
+          });
         }
         renderNode(c.next);
       };
@@ -1597,14 +1665,16 @@ function toCsvValue(v) {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-function downloadSessionCsv(row) {
-  const headers = Object.keys(row);
-  const csv = headers.join(',') + '\n' + headers.map(h => toCsvValue(row[h])).join(',');
+function downloadSessionCsv(rows) {
+  const dataset = Array.isArray(rows) ? rows : [rows];
+  if (!dataset.length) return;
+  const headers = Object.keys(dataset[0]);
+  const csv = headers.join(',') + '\n' + dataset.map(r => headers.map(h => toCsvValue(r[h])).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `gladiator_study_session_${sessionId}.csv`;
+  a.download = `gladiator_study_events_${sessionId}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -1630,48 +1700,16 @@ function calcResults() {
   const avgs = scores.map(s => (s/5).toFixed(2));
   const derived = computeDerivedMetrics();
 
-  // Full data package for the researcher. None of this is rendered to the
-  // participant: showing condition, latency, or construct scores on screen
-  // would tell them exactly what was being tested and why. It's logged to
-  // the console AND saved as a CSV — the console log and the CSV download
-  // are both stand-ins for a real POST to a study backend, since this
-  // build has no server component of its own.
-  const row = {
-    session_id: sessionId,
-    timestamp: new Date().toISOString(),
-    arm: behavioralData.arm,
-    total_rounds_played: currentRound,
-    session_duration_ms: sessionStartTime !== null ? Math.round(performance.now() - sessionStartTime) : '',
-    round1_latency_ms: roundLatencyByRound[1] ?? '',
-    round2_latency_ms: roundLatencyByRound[2] ?? '',
-    round3_latency_ms: roundLatencyByRound[3] ?? '',
-    round4_latency_ms: roundLatencyByRound[4] ?? '',
-    round5_latency_ms: roundLatencyByRound[5] ?? '',
-    baseline_mean_latency_ms: derived.baselineMean !== null ? Math.round(derived.baselineMean) : '',
-    baseline_sd_latency_ms: derived.baselineSd !== null ? Math.round(derived.baselineSd) : '',
-    association_level_at_trigger: behavioralData.associationLevel,
-    wounded_rounds_forced: woundedRoundsForced,
-    relinquishment_latency_ms: behavioralData.relinquishmentLatencyMs ?? '',
-    existential_weight_ew: derived.ew !== null ? derived.ew.toFixed(3) : '',
-    ew_interpretation: derived.ewInterpretation ?? '',
-    final_choice: behavioralData.finalChoice ?? '',
-    resistance_attempted: behavioralData.resistanceAttempted ?? '',
-    engagement_first_ms: behavioralData.engagementFirstMs ?? '',
-    engagement_post_loss_ms: behavioralData.engagementPostLossMs ?? '',
-    engagement_delta_ms: behavioralData.engagementDeltaMs ?? '',
-    legacy_choice_similar: behavioralData.legacyChoiceSimilar === null ? '' : behavioralData.legacyChoiceSimilar,
-    identity_transfer_index: behavioralData.legacyChoiceSimilar === null ? '' : (behavioralData.legacyChoiceSimilar ? 1 : 0),
-    x1_association_strength_ms: derived.x1AssociationStrengthMs !== null ? Math.round(derived.x1AssociationStrengthMs) : '',
-    x2_narrative_engagement_ms: derived.x2NarrativeEngagementMs,
-    x3_visual_decay_reaction_ms: derived.x3VisualDecayReactionMs ?? '',
-    denarii_earned: denarii,
-    ears_relinquishment_achievement: avgs[0],
-    ears_meaning_reconstruction: avgs[1],
-    ears_finitude_awareness: avgs[2],
-    ears_bond_transformation: avgs[3]
-  };
-  console.log('[STUDY DATA]', row);
-  downloadSessionCsv(row);
+  // Log final survey event row (Row 8)
+  logEvent({
+    roundNumber: '8_Survey',
+    eventType: 'EARS_Survey',
+    choiceMade: 'Survey_Submit',
+    latencyMs: sessionStartTime !== null ? Math.round(performance.now() - sessionStartTime) : 0
+  });
+
+  console.log('[STUDY EVENT DATA (LONG FORMAT - 7-8 ROWS)]', eventLog);
+  downloadSessionCsv(eventLog);
 
   const res = document.getElementById('results');
   res.innerHTML = `
